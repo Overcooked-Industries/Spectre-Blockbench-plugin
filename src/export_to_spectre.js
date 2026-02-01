@@ -3,17 +3,19 @@ let exportButton;
 function load() {
     exportButton = new Action("export-to-spectre-button", {
         click() {
-            
-            const json = JSON.stringify({ test: true }, null, 2);
+            let a = TextureLayer.name;
+            let text = "";
+
+            const json = JSON.stringify({ a }, null, 2);
             Blockbench.export({
                 type: 'Spectre Model',
                 extensions: ['json'],
-                name: 'test.json',
+                name: `${Project?.name ?? "unnamed"}.json`,
                 content: json
             });
         },
 
-        icon: "icon",
+        icon: "S",
         name: "Export Spectre Model"
     });
 
@@ -38,7 +40,7 @@ Plugin.register(
     author: 'Kilip1000',
     description: 'Export your project as a Spectre json.',
     icon: 'icon.png',
-    creation_date: '2025-04-16',
+    creation_date: '2025-02-01',
     version: '2.0.0',
     variant: 'desktop',
     min_version: '4.12.4',
