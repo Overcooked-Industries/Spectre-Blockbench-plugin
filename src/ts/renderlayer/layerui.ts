@@ -1,68 +1,23 @@
-import {getRenderLayersProperty} from "./properties";
+import {getRenderLayersProperty} from "../properties";
+import {
+    addRenderLayer,
+    getRenderLayerTextureSource,
+    RenderLayer,
+    selectRenderLayer,
+    unselectAllRenderLayers
+} from "./renderlayer";
 
-// Main Render Layer class which holds information about each layer
-// TODO - Parse the related info to reconstruct this class with the custom format
-//  (this took 2 days to figure out what's wrong my gosh)
-export class RenderLayer {
-    name: string;
-    type: string;
-    textureIdentifier: string;
-    previewTextureUuid: string;
-
-    selected: boolean = false;
-
-    constructor(name: string, type: string, textureIdentifier: string, previewTextureUuid: string) {
-        this.name = name || "Layer";
-        this.type = type || "type_missing";
-        this.textureIdentifier = textureIdentifier || "minecraft:no_texture";
-        this.previewTextureUuid = previewTextureUuid || undefined;
-    }
-
-    select(event: MouseEvent) {
-        this.selected = true;
-        updateInterfacePanels();
-        return this;
-    }
-
-    unselect() {
-        this.selected = false;
-        return this;
-    }
-
-    public getTexture(): Texture {
-        let textureIndex: number = Texture.all.findInArray("uuid", this.previewTextureUuid);
-        return Texture.all[textureIndex] || Texture.getDefault();
-    }
-
-    public getTextureSource(): string {
-        return this.getTexture().source;
-    }
-}
 
 let renderLayerPanel: Panel;
 
-export function loadRenderLayers(): void {
+export function loadRenderLayerPanel(): void {
     // Spectre Layers panel
     renderLayerPanel = createRenderLayerPanel();
     updateInterfacePanels();
 }
 
-export function unloadRenderLayers(): void {
+export function unloadRenderLayerPanel(): void {
     renderLayerPanel.delete();
-}
-
-export function addRenderLayer(renderLayer: RenderLayer): void {
-    let projectRenderLayers: Array<RenderLayer> = getRenderLayersProperty();
-    if (projectRenderLayers != undefined) {
-        projectRenderLayers.push(renderLayer);
-    }
-}
-
-function unselectAllLayers(): void {
-    getRenderLayersProperty().forEach(layer => {
-        layer.unselect();
-    });
-    updateInterfacePanels();
 }
 
 export function addRenderLayerDialog(): void {
@@ -75,12 +30,12 @@ export function addRenderLayerDialog(): void {
         form: config,
         onConfirm(formResult: any, event: Event): void | boolean {
             // TODO - Warning for if any results are missing
-            let renderLayer: RenderLayer = new RenderLayer(
-                formResult.layerName,
-                formResult.layerType,
-                formResult.textureIdentifier,
-                formResult.previewTextureIndex
-            );
+            let renderLayer: RenderLayer = new RenderLayer({
+                name: formResult.layerName || "Layer",
+                type: formResult.layerType || "no_type",
+                textureIdentifier: formResult.textureIdentifier || "minecraft:no_texture",
+                previewTextureUuid: formResult.previewTextureIndex || Texture.getDefault().uuid
+            });
             addRenderLayer(renderLayer);
 
             dialog.hide();
@@ -92,17 +47,20 @@ export function addRenderLayerDialog(): void {
 function createRenderLayerPanel(): Panel {
     let renderLayerComponent = Vue.extend({
         props: {
-            renderlayer: RenderLayer
+            renderlayer
         },
         methods: {
-            getDescription(renderLayer: RenderLayer): string {
-                return `${renderLayer.type}, ${renderLayer.textureIdentifier}`;
+            getDescription(renderlayer: RenderLayer): string {
+                return `${renderlayer.data.type}, ${renderlayer.data.textureIdentifier}`;
+            },
+            selectRenderLayer(renderlayer: RenderLayer, mouseEvent: MouseEvent): void {
+                selectRenderLayer(renderlayer, mouseEvent);
             },
             dragRenderLayer(mouseEvent: MouseEvent): void {
                 if (mouseEvent.button == 1) return; // Don't accept middle click I think this is doing?
                 if (getFocusedTextInput()) return;
 
-                let renderlayer: RenderLayer = this.renderlayer;
+                let renderlayer = this.renderlayer;
                 let active: boolean = false;
                 let helper;
 
@@ -142,7 +100,7 @@ function createRenderLayerPanel(): Panel {
                     if (!helper) {
                         helper = vueScope.$el.cloneNode();
                         helper.classList.add("texture_drag_helper");
-                        helper.setAttribute("layerid", renderlayer.name)
+                        helper.setAttribute("layerid", renderlayer.data.name)
 
                         document.body.append(helper);
                         scrollInternvalID = setInterval(scrollInterval, 1000/60);
@@ -183,21 +141,24 @@ function createRenderLayerPanel(): Panel {
 
                 addEventListeners(document, "mousemove touchmove", move, {passive: false});
                 addEventListeners(document, "mouseup touchend", drop, {passive: false});
+            },
+            getRenderLayerTextureSource(layer: RenderLayer): string {
+                return getRenderLayerTextureSource(layer);
             }
         },
         template: `
             <li
                 v-bind:class="{ selected: renderlayer.selected }"
-                v-bind:layerid="renderlayer.name"
+                v-bind:layerid="renderlayer.data.name"
                 class="texture"
-                @click.stop="renderlayer.select($event)"
+                @click.stop="selectRenderLayer(renderlayer, $event)"
                 @mousedown.stop="dragRenderLayer($event)" @touchstart.stop="dragRenderLayer($event)"
             >
             <div class="texture_icon_wrapper">
-              <img v-bind:texid="renderlayer.textureIdentifier" v-bind:src="renderlayer.getTextureSource()" class="texture_icon" width="48px" alt="" />
+              <img v-bind:texid="renderlayer.data.textureIdentifier" v-bind:src="getRenderLayerTextureSource(renderlayer)" class="texture_icon" width="48px" alt="" />
             </div>
               <div class="texture_description_wrapper">
-                <div class="texture_name">{{ renderlayer.name }}</div>
+                <div class="texture_name">{{ renderlayer.data.name }}</div>
                 <div class="texture_res">{{ getDescription(renderlayer) }}</div>
               </div>              
             </li>
@@ -241,27 +202,27 @@ function createRenderLayerPanel(): Panel {
                 "RenderLayer": renderLayerComponent
             },
             methods: {
-                openMenu(event): void { // Opens a menu on right click
-                    // console.log("hiya");
-                    // renderLayerPanel.show(event);
-                },
+                // openMenu(event): void { // Opens a menu on right click
+                //     // console.log("hiya");
+                //     // renderLayerPanel.show(event);
+                // },
                 getRenderLayers(): RenderLayer[] {
                     return getRenderLayersProperty();
                 },
-                unselect(): void {
-                    // unselectAllLayers();
+                unselectAll(): void {
+                    unselectAllRenderLayers();
                 }
             },
             template: `
-                <div>
-                  <ul id="renderlayer_list" class="list mobile_scrollbar" @click.stop="unselect($event)" >
-                    <RenderLayer
+              <div>
+                <ul id="renderlayer_list" class="list mobile_scrollbar" @click.stop="unselectAll()">
+                  <RenderLayer
                       v-for="renderlayer in getRenderLayers()"
-                      :key="renderlayer.name"
+                      :key="renderlayer.data.name"
                       :renderlayer="renderlayer"
-                    ></RenderLayer>
-                  </ul>
-                </div>
+                  ></RenderLayer>
+                </ul>
+              </div>
             `
         }
     })

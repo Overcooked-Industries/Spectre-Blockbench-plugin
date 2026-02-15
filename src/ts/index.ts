@@ -1,6 +1,7 @@
-import {addRenderLayerDialog, loadRenderLayers, unloadRenderLayers} from "./renderlayer";
+import {loadRenderLayers, unloadRenderLayers} from "./renderlayer/renderlayer";
 import {loadSpectreProperties, unloadSpectreProperties} from "./properties";
 import {SPECTRE_CODEC, unloadSpectreFormat} from "./format";
+import {addRenderLayerDialog} from "./renderlayer/layerui";
 
 let menuItems: { action: Action, menuCategory: string }[];
 
